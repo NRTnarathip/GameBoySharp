@@ -6,10 +6,10 @@ internal class Program
     private static void Main(string[] args)
     {
         var tetrisRomBytes = LoadRom("Tetris.gb");
-        var asmReader = new GBAssemblyReader(tetrisRomBytes);
+        //var asmReader = new GBAssemblyReader(tetrisRomBytes);
 
-        //var gameBoy = new GameBoy();
-        //gameBoy.LoadRom(tetrisRomBytes);
+        var gameBoy = new GameBoy();
+        gameBoy.LoadGame(tetrisRomBytes);
         Console.ReadKey();
     }
 

@@ -11,9 +11,11 @@ public sealed class GBAssemblyReader
 {
     readonly byte[] rom;
     readonly int romSizeBytes;
+    readonly InstructionDatabase instructionDatabase = new();
+
     public GBAssemblyReader(byte[] rom)
     {
-        InitInstructionDatabase();
+        instructionDatabase.Init();
 
         this.rom = rom;
         romSizeBytes = rom.Length;
@@ -29,12 +31,13 @@ public sealed class GBAssemblyReader
             {
                 //Console.WriteLine($"PC: {PC}");
                 var opcode = ReadOpcode(PC);
-                PC += opcode.bytes;
                 if (opcode is null)
                 {
                     Console.WriteLine("not found opcode at address: " + PC);
                     break;
                 }
+
+                PC += opcode.bytes;
 
                 // assert prefix opcode
                 if (opcode.isPrefix)
@@ -54,8 +57,7 @@ public sealed class GBAssemblyReader
                     uniqGeneralOpcodes.Add(opcode);
                 }
 
-
-                // check out of memory
+                // check out of rom
                 if (PC >= rom.Length)
                     break;
 
@@ -92,38 +94,13 @@ public sealed class GBAssemblyReader
         return (ushort)(rom[i + 1] << 8 | rom[i]);
     }
 
-    //string ByteToHex(this byte b) => $"0x{b:X}";
-
     InstructionDBInfo? ReadOpcode(byte opcode)
     {
-        normalInstructions.TryGetValue(opcode, out var inst);
-        return inst;
+        return instructionDatabase.GetInstruction(opcode);
     }
 
     InstructionDBInfo? ReadOpcode(int i)
     {
         return ReadOpcode(ReadByte(i));
     }
-
-    readonly Dictionary<byte, InstructionDBInfo> normalInstructions = new();
-    readonly Dictionary<byte, InstructionDBInfo> cbprefixedInstructions = new();
-    void InitInstructionDatabase()
-    {
-        var json = JObject.Parse(File.ReadAllText("instructions.json"));
-        var unprefixItems = json["unprefixed"].ToObject<Dictionary<string, InstructionDBInfo>>();
-        var cbprefixItems = json["cbprefixed"].ToObject<Dictionary<string, InstructionDBInfo>>();
-        LoadInstructionToDictionary(unprefixItems, normalInstructions);
-        LoadInstructionToDictionary(cbprefixItems, cbprefixedInstructions);
-    }
-    void LoadInstructionToDictionary(
-        Dictionary<string, InstructionDBInfo> srcItems,
-        Dictionary<byte, InstructionDBInfo> destDictionary)
-    {
-        foreach ((var opcodeHex, var inst) in srcItems)
-        {
-            inst.Init(opcodeHex);
-            destDictionary[inst.opcode] = inst;
-        }
-    }
-
 }

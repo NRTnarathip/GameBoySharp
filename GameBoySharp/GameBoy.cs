@@ -1,21 +1,34 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace GameBoySharp;
 
-namespace GameBoySharp
+public sealed class GameBoy
 {
-    public sealed class GameBoy
+    public readonly CPU cpu = new();
+
+    public GameBoy()
     {
-        public GameBoy()
-        {
+    }
 
-        }
 
-        internal void LoadRom(byte[] tetrisRomBytes)
+    GamePak? gamePak;
+    public void LoadGame(byte[] rom)
+    {
+        // setup
+        gamePak = new(rom);
+        cpu.InitGamePak(gamePak);
+
+        // run now!!
+        RunGame();
+    }
+
+    void RunGame()
+    {
+        while (true)
         {
-            throw new NotImplementedException();
+            Thread.Sleep(0);
+
+            cpu.Step();
         }
     }
+
+    public void LoadGame(string path) => LoadGame(File.ReadAllBytes(path));
 }

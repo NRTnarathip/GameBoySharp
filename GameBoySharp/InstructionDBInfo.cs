@@ -4,6 +4,7 @@ public sealed class InstructionDBInfo
 {
     public class Operand
     {
+        // Serializer Fields
         public required string name { get; set; }
         public int bytes { get; set; }
         public bool immediate { get; set; }
@@ -11,12 +12,14 @@ public sealed class InstructionDBInfo
 
     // serialize fields
     public required string mnemonic { get; set; }
-    public int bytes { get; set; }
+    public ushort bytes { get; set; }
     public required int[]? cycles { get; set; }
     public bool immediate { get; set; }
     public required Dictionary<string, string> flags { get; set; }
-    public Operand[]? operands { get; set; }
+    public Operand[] operands { get; set; } = [];
 
+
+    // helper
     // need to init this
     public byte opcode { get; private set; }
     public string? opcodeHex { get; private set; }
@@ -71,6 +74,6 @@ public sealed class InstructionDBInfo
 
     public override string? ToString()
     {
-        return opcodeHex;
+        return $"{mnemonic} 0x{opcodeHex}";
     }
 }
