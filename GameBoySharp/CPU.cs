@@ -9,8 +9,8 @@ namespace GameBoySharp;
 public sealed class CPU
 {
     // Registers
-    public ushort PC;
-    public ushort SP;
+    public static ushort PC { get; private set; }
+    public static ushort SP { get; private set; }
 
     public readonly Register8Bit A = new("A");
     public readonly Register8Bit B = new("B");
@@ -54,30 +54,69 @@ public sealed class CPU
         PC = 0x100;
     }
 
-    public void Step()
+    public InstructionMeta? lastFetch;
+
+    InstructionMeta Fetch()
     {
-        var opcode = mmu.ReadByte(PC);
-        PC++;
+        var opcode = mmu.ReadByte(PC++);
 
         var inst = instructionDB.GetInstruction(opcode);
+        lastFetch = inst;
+
         if (inst is null)
         {
-            throw new Exception("opcode is null");
+            // freeze PC
+            PC--;
+
+            throw new Exception("instruction is null");
         }
 
-        Console.WriteLine("fetched inst: " + inst);
+        return inst;
+    }
 
+    void ReadInstructionBytes(int address, byte[] bytes, ref string bytesHex)
+    {
+        var opcode = ReadByte(address);
+        var instruction = instructionDB.GetInstruction(opcode);
+        bytes[0] = opcode;
+        bytesHex = "0x" + opcode.ToHex();
+
+        if (instruction.bytes >= 2)
+        {
+            bytes[1] = ReadByte(address + 1);
+            bytesHex += " 0x" + bytes[1].ToHex();
+            if (instruction.bytes >= 3)
+            {
+                bytes[2] = ReadByte(address + 2);
+                bytesHex += " 0x" + bytes[2].ToHex();
+            }
+        }
+    }
+
+    InstructionDecode? lastDecode;
+    public void Step()
+    {
+        var inst = Fetch();
+
+        byte[] instructionBytes = new byte[inst.bytes];
+        string instructionBytesHex = "";
+        ReadInstructionBytes(PC - 1, instructionBytes, ref instructionBytesHex);
+        lastDecode = new(inst, instructionBytes);
+
+        //Logger.Log("");
+        //Logger.Log("");
+        //Logger.Log("PC", (PC - 1).ToHex());
+        //Logger.Log(inst);
 
         if (inst.isPrefix)
         {
-            throw new Exception("not support prefix opcode!!");
+            throw new NotSupportedException("not support prefix opcode!!");
         }
 
         var instName = inst.mnemonic;
         switch (instName)
         {
             case "NOP": break;
-            case "AND": AND(inst); break;
             case "ADD": ADD(inst); break;
             case "SUB": SUB(inst); break;
             case "SBC": SBC(inst); break;
@@ -86,27 +125,49 @@ public sealed class CPU
             case "CP": CP(inst); break;
             case "CPL": CPL(inst); break;
             case "JP": Jump(inst); break;
-            case "JR": JumpOffset(inst); break;
+            case "JR": JumpRelative(inst); break;
             case "CALL": CALL(inst); break;
-            case "POP": POP(); break;
-            case "PUST": PUSH(inst); break;
-            case "RST": RST(inst); break;
-
-            case "OR": OR(inst); break;
-            case "XOR": XOR(inst); break;
-            case "LD": LD(inst); break;
-            case "LDH": LDH(inst); break;
-            case "ILLEGAL_FC": break;
-            case "DI": DI(inst); break;
             case "RET":
             case "RETI":
                 RETOrRETI(inst); break;
+            case "POP": POP(inst); break;
+            case "PUSH": PUSH(inst); break;
+            case "RST": RST(inst); break;
+
+            case "AND": AND(inst); break;
+            case "OR": OR(inst); break;
+            case "XOR": XOR(inst); break;
+
+            case "LD": LD(inst); break;
+            case "LDH": LDH(inst); break;
+            //case "ILLEGAL_FC": break;
+            case "DI": DI(inst); break;
+            case "STOP": STOP(inst); break;
+            case "CCF": CCF(inst); break;
 
             // Prefix Extends
-            case "SET": SET(inst); break;
+            //case "SET": SET(inst); break;
 
             default: throw new NotImplementedException();
         }
+    }
+
+    void CCF(InstructionMeta inst)
+    {
+        FlagC = !FlagC;
+        FlagN = false;
+        FlagH = false;
+    }
+
+    void STOP(InstructionMeta inst)
+    {
+        throw new NotImplementedException();
+    }
+
+    void POP(InstructionMeta inst)
+    {
+        var reg = GetRegister16Bit(inst.operand1);
+        reg.value = POP();
     }
 
     void RST(InstructionMeta inst)
@@ -126,6 +187,7 @@ public sealed class CPU
             default: throw new NotImplementedException();
         }
     }
+
     void RST(byte b)
     {
         PUSH(PC);
@@ -134,8 +196,7 @@ public sealed class CPU
 
     void PUSH(InstructionMeta inst)
     {
-        var reg = GetRegister16Bit(inst.operand1);
-        PUSH(reg.value);
+        PUSH(GetRegister16Bit(inst.operand1).value);
     }
 
     void ADD(InstructionMeta inst)
@@ -151,6 +212,9 @@ public sealed class CPU
                 break;
             case <= 0x87:
                 ADD((byte)GetRegister(inst.operand2).GetValue());
+                break;
+            case 0xC6:
+                ADD(ReadBytePC());
                 break;
 
             default: throw new NotImplementedException();
@@ -184,7 +248,7 @@ public sealed class CPU
             return;
         }
 
-        CALL(GetOperandCondValue(inst.operand1.name));
+        CALL(GetOperandCondValue(inst.operand1));
     }
 
 
@@ -214,14 +278,13 @@ public sealed class CPU
         // SBC A, d8
         if (inst.opcode is 0xDE)
         {
-            A.value = SBC(A.value);
+            SBC(A.value);
             return;
         }
         // SBC (HL)
         else if (inst.opcode is 0x9E)
         {
-            var newValue = SBC(ReadByte(HL));
-            HL.value = newValue;
+            SBC(ReadByte(HL));
             return;
         }
 
@@ -229,7 +292,7 @@ public sealed class CPU
         reg.value = SUB(reg.value);
     }
 
-    byte SBC(byte b)
+    void SBC(byte b)
     {
         int carry = FlagC ? 1 : 0;
         int result = A - b - carry;
@@ -241,7 +304,6 @@ public sealed class CPU
             SetFlagHSub(A, b);
         SetFlagC(result);
         A.value = (byte)result;
-        return (byte)result;
     }
     void SetFlagHSubCarry(byte b1, byte b2)
     {
@@ -249,7 +311,7 @@ public sealed class CPU
         FlagH = (b1 & 0xF) < ((b2 & 0xF) + carry);
     }
 
-    private byte SUB(byte b)
+    byte SUB(byte b)
     {
         int result = A - b;
         SetFlagZ(result);
@@ -279,9 +341,9 @@ public sealed class CPU
         register.value = SUB(register.value);
     }
 
-    bool GetOperandCondValue(string name)
+    bool GetOperandCondValue(InstructionMeta.OperandMeta operand)
     {
-        switch (name)
+        switch (operand.name)
         {
             case "Z": return FlagZ;
             case "NZ": return NotFlagZ;
@@ -298,16 +360,16 @@ public sealed class CPU
             IME = true;
             return;
         }
-
-        RET(inst.operands.Length == 0 ? true : GetOperandCondValue(inst.operand1.name));
+        if (inst.operand1 is not null)
+            RET(GetOperandCondValue(inst.operand1));
+        else
+            RET(true);
     }
 
     void RET(bool flag)
     {
         if (flag)
-        {
             PC = POP();
-        }
     }
 
     void PUSH(ushort addr)
@@ -436,31 +498,31 @@ public sealed class CPU
         SetFlagC(result);
     }
 
-    void JumpOffset(InstructionMeta inst)
+    void JumpRelative(InstructionMeta inst)
     {
         switch (inst.opcode)
         {
-            case 0x18: JumpOffset(true); break;
-            case 0x20: JumpOffset(NotFlagZ); break;
-            case 0x28: JumpOffset(FlagZ); break;
-            case 0x30: JumpOffset(NotFlagC); break;
-            case 0x38: JumpOffset(FlagC); break;
+            case 0x18: JumpRelative(true); break;
+            case 0x20: JumpRelative(NotFlagZ); break;
+            case 0x28: JumpRelative(FlagZ); break;
+            case 0x30: JumpRelative(NotFlagC); break;
+            case 0x38: JumpRelative(FlagC); break;
             default: throw new NotImplementedException();
         }
     }
-    void JumpOffset(bool jump)
+    void JumpRelative(bool jump)
     {
         if (jump)
         {
-            sbyte sb = (sbyte)ReadByte(PC);
-            PC = (ushort)(PC + sb);
+            var offset = (sbyte)lastDecode.raw[1];
+            PC = (ushort)(PC + offset + 1);
         }
+
+        // move next instruction
         else
         {
-
+            PC++;
         }
-
-        PC += 1;
     }
 
     void LDH(InstructionMeta inst)
@@ -505,7 +567,12 @@ public sealed class CPU
         var register = GetRegister(inst.operand1);
         if (inst.anyFlagAffect)
         {
-            register.SetValue(INC((byte)register.GetValue()));
+            // support only 8bit
+            byte newValue = INC((byte)register.GetValue());
+            if (register is Register16Bit reg16bit)
+                throw new NotSupportedException();
+            else if (register is Register8Bit)
+                register.SetValue(newValue);
         }
         else
         {
@@ -540,17 +607,25 @@ public sealed class CPU
         // 0x35 DEC (HL)
         else if (inst.opcode == 0x35)
         {
-            var newValue = INC(ReadByte(HL.value));
+            var newValue = DEC(ReadByte(HL.value));
             WriteByte(HL.value, newValue);
+            PC += (ushort)(inst.bytes - 1);
+            return;
         }
-
 
         // Decrement Register 8bit | 16bit
         if (inst.anyFlagAffect)
-            register.SetValue(DEC((byte)register.GetValue()));
+        {
+            byte prevValue = (byte)register.GetValue();
+            //byte newValue = DEC(prevValue);
+            //register.SetValue(newValue);
+            register.SetValue(DEC(prevValue));
+        }
         // 0x?8
         else
             register.SetValue(register.GetValue() - 1);
+
+        PC += (ushort)(inst.bytes - 1);
     }
 
     byte DEC(byte b)
@@ -564,7 +639,7 @@ public sealed class CPU
 
     void SetFlagZ(int result)
     {
-        FlagZ = result == 0;
+        FlagZ = (byte)result == 0;
     }
 
     void SetFlagHSub(byte b1, byte b2)
@@ -581,7 +656,6 @@ public sealed class CPU
             case "C": return C;
             case "D": return D;
             case "E": return E;
-            case "F": return F;
             case "H": return H;
             case "L": return L;
             case "AF": return AF;
@@ -595,17 +669,6 @@ public sealed class CPU
         => GetRegisterByName(operand.name);
     Register16Bit? GetRegister16Bit(InstructionMeta.OperandMeta operand)
         => GetRegisterByName(operand.name) as Register16Bit;
-
-    // support srcValue 8bit, 16bit
-    void LoadValueToAddress(ushort dstAddress, object srcValue)
-    {
-        if (srcValue is byte val8)
-            WriteByte(dstAddress, val8);
-        else if (srcValue is ushort val16)
-            WriteWord(dstAddress, val16);
-        else
-            throw new NotSupportedException();
-    }
 
     // auto value 8bit, 16bit
     void LoadValueToRegister(IRegisterBase register, ushort value)
@@ -632,9 +695,19 @@ public sealed class CPU
             throw new NotImplementedException();
         }
 
-        if (operand.is8Bit)
-            return ReadByte(operand.byteOffset);
-        return ReadWord(operand.byteOffset);
+        if (operand.immediate)
+        {
+            if (operand.name is "n16")
+                return ReadWord(PC - 1 + operand.byteOffset);
+            else if (operand.name is "n8")
+                return ReadByte(PC - 1 + operand.byteOffset);
+            else if (operand.name is "SP")
+                return SP;
+            else if (operand.name is "a16")
+                return ReadWord(PC - 1 + operand.byteOffset);
+        }
+
+        throw new NotImplementedException();
     }
 
     void LD(InstructionMeta inst)
@@ -646,20 +719,30 @@ public sealed class CPU
                 var dstOperand = inst.operand1;
                 var srcOperand = inst.operand2;
                 ushort srcValue = ReadOperandValue(inst, srcOperand);
-
                 var dstRegister = GetRegisterByName(dstOperand.name);
                 // load value to address
                 if (dstOperand.immediate is false)
                 {
                     if (dstRegister != null)
                     {
-                        ushort dstAddress = (ushort)dstRegister.GetValue();
-                        LoadValueToAddress(dstAddress, srcValue);
+                        ushort dstAddress = dstRegister.GetValue();
+                        if (inst.opcode is 0x12)
+                        {
+                            Console.WriteLine();
+                        }
+
+                        if (srcOperand.is8Bit)
+                            WriteByte(dstAddress, (byte)srcValue);
+                        else
+                            WriteWord(dstAddress, srcValue);
                     }
                     else
                     {
-                        var dstValue = ReadOperandValue(inst, dstOperand);
-                        LoadValueToAddress(dstValue, srcValue);
+                        ushort dstAddress = ReadOperandValue(inst, dstOperand);
+                        if (dstOperand.is8Bit)
+                            WriteByte(dstAddress, (byte)srcValue);
+                        else
+                            WriteWord(dstAddress, srcValue);
                     }
                 }
                 // load value to register
@@ -668,16 +751,47 @@ public sealed class CPU
                     LoadValueToRegister(dstRegister, srcValue);
                 }
 
-                PC += (ushort)(inst.bytes - 1);
+                // done & post
+                if (dstOperand.increment || dstOperand.decrement)
+                    OperandPostIncOrDec(dstOperand);
+                else if (srcOperand.increment || srcOperand.decrement)
+                    OperandPostIncOrDec(srcOperand);
+
                 break;
             case 0xF8:
-                HL.value = DADe8(SP); break;
+                HL.value = DADe8(SP);
+                PC += (ushort)(inst.bytes - 1);
+                break;
+            case 0xFA:
+                A.value = ReadByte(ReadWordPC());
+                break;
+            case 0xEA:
+                WriteByte(ReadWordPC(), A.value);
+                break;
             case 0xF9:
-                SP = HL; break;
+                SP = HL;
+                break;
             default:
                 throw new NotImplementedException();
         }
+
+        PC += (ushort)(inst.bytes - 1);
     }
+
+    void OperandPostIncOrDec(InstructionMeta.OperandMeta operand)
+    {
+        if (!operand.increment && !operand.decrement)
+            return;
+
+        var reg = GetRegister(operand);
+        if (operand.increment)
+            reg.Increment();
+        else
+            reg.Decrement();
+
+        //Logger.Log("OperandPostIncOrDec", operand.name, "flag:", operand.types);
+    }
+
     void SetFlagH(byte a, byte b)
     {
         FlagH = ((a & 0xF) + (b & 0xF)) > 0xF;
@@ -692,7 +806,7 @@ public sealed class CPU
     }
     private ushort DADe8(ushort w)
     {
-        byte b = ReadByte(PC++);
+        byte b = ReadByte(PC);
         FlagZ = false;
         FlagN = false;
         SetFlagH((byte)w, b);
@@ -722,35 +836,26 @@ public sealed class CPU
         bool jump = false;
         switch (inst.opcode)
         {
-            case 0xC2:
-                jump = !FlagZ;
-                break;
-            case 0xC3:
-                jump = true;
-                break;
-            case 0xCA:
-                jump = FlagZ;
-                break;
-            case 0xDA:
-                jump = FlagC;
-                break;
-            case 0xD2:
-                jump = !FlagC;
-                break;
+            case 0xC2: jump = NotFlagZ; break;
+            case 0xC3: jump = true; break;
+            case 0xCA: jump = FlagZ; break;
+            case 0xD2: jump = NotFlagC; break;
+            case 0xDA: jump = FlagC; break;
 
             default: throw new NotImplementedException();
         }
 
+
         if (jump)
         {
-            PC = ReadWord(PC);
+            PC = ReadWordPC();
+            Console.WriteLine("jumped to : " + PC.ToHex());
         }
         else
         {
             PC += 2;
+            Console.WriteLine("skip jump");
         }
-
-        Console.WriteLine("jumped to: 0x" + PC.ToHex());
     }
 
     void XOR(InstructionMeta inst)

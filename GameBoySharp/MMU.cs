@@ -1,4 +1,6 @@
 ﻿
+using System.Diagnostics;
+
 namespace GameBoySharp;
 
 public sealed class MMU
@@ -10,30 +12,53 @@ public sealed class MMU
     byte[] IO = new byte[0x80];
     byte[] HRAM = new byte[0x80];
 
-    GamePak gamePak;
     MBCBase mbc;
     public MMU()
     {
+        //FF4D - KEY1 - CGB Mode Only - Prepare Speed Switch
+        //HardCoded to FF to identify DMG as 00 is GBC
+        IO[0x4D] = 0xFF;
 
+        IO[0x10] = 0x80;
+        IO[0x11] = 0xBF;
+        IO[0x12] = 0xF3;
+        IO[0x14] = 0xBF;
+        IO[0x16] = 0x3F;
+        IO[0x19] = 0xBF;
+        IO[0x1A] = 0x7F;
+        IO[0x1B] = 0xFF;
+        IO[0x1C] = 0x9F;
+        IO[0x1E] = 0xBF;
+        IO[0x20] = 0xFF;
+        IO[0x23] = 0xBF;
+        IO[0x24] = 0x77;
+        IO[0x25] = 0xF3;
+        IO[0x26] = 0xF1;
+        IO[0x40] = 0x91;
+        IO[0x47] = 0xFC;
+        IO[0x48] = 0xFF;
+        IO[0x49] = 0xFF;
     }
     public void Init(GamePak game)
     {
-        this.gamePak = game;
-        this.mbc = game.mbc;
+        this.mbc = game.mbc!;
     }
 
     public byte ReadByte(ushort addr)
     {
+        var hex = addr.ToHex();
+        if (addr is 0xC000)
+        {
+            Console.WriteLine();
+        }
         switch (addr)
         {
             // Low, Hi Rom
             case <= 0x7FFF:
                 return mbc.ReadROM(addr);
-
             case <= 0x9FFF:
                 // 8000-9FFF 8KB Video RAM(VRAM)(switchable bank 0-1 in CGB Mode)
                 return VRAM[addr & 0x1FFF];
-
             case <= 0xBFFF:
                 // A000-BFFF 8KB External RAM(in cartridge, switchable bank, if any)
                 return mbc.ReadExternalRAM(addr);
@@ -61,13 +86,13 @@ public sealed class MMU
             case <= 0xFFFF:
                 // FF80-FFFE High RAM(HRAM)
                 return HRAM[addr & 0x7F];
-
-            default: return 0xFF;
         }
     }
     public byte ReadByte(int addr) => ReadByte((ushort)addr);
     public ushort ReadWord(ushort addr)
-        => (ushort)(ReadByte(addr) << 8 | ReadByte(addr + 1));
+    {
+        return (ushort)(ReadByte(addr + 1) << 8 | ReadByte(addr));
+    }
 
     public void WriteByte(int addr, byte b)
     {
@@ -83,6 +108,8 @@ public sealed class MMU
                 mbc.WriteExternalRAM(addr, b);
                 break;
             case <= 0xCFFF:    // C000-CFFF 4KB Work RAM Bank 0(WRAM) <br/>
+                var hex = addr.ToHex();
+                var pc = CPU.PC;
                 WRAM0[addr & 0xFFF] = b;
                 break;
             case <= 0xDFFF:    // D000-DFFF 4KB Work RAM Bank 1(WRAM)(switchable bank 1-7 in CGB Mode)
@@ -98,7 +125,6 @@ public sealed class MMU
                 OAM[addr & 0x9F] = b;
                 break;
             case <= 0xFEFF:    // FEA0-FEFF Not Usable
-                               //Console.WriteLine("Warning: Tried to write to NOT USABLE space");
                 break;
             case <= 0xFF7F:    // FF00-FF7F IO Ports
                 switch (addr)
@@ -122,6 +148,8 @@ public sealed class MMU
     }
     public void WriteWord(ushort addr, ushort w)
     {
+        var stack = new StackTrace();
+        var farmes = stack.GetFrames().ToArray();
         WriteByte(addr + 1, (byte)(w >> 8));
         WriteByte(addr, (byte)w);
     }

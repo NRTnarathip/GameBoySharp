@@ -1,5 +1,6 @@
 ﻿
 
+
 namespace GameBoySharp;
 
 public sealed class Register16Bit : RegisterBase<ushort>
@@ -10,29 +11,32 @@ public sealed class Register16Bit : RegisterBase<ushort>
     {
         this.hi = hi;
         this.lo = lo;
+        hi.OnSetterValue = OnHiLowSetterValue;
+        lo.OnSetterValue = OnHiLowSetterValue;
+    }
+
+    void OnHiLowSetterValue()
+    {
+        _value = (ushort)(hi.value << 8 | lo.value);
     }
 
     public override void Decrement()
     {
-        value = (ushort)(value - 1);
+        value = (ushort)(_value - 1);
     }
     public override void Increment()
     {
-        value = (ushort)(value + 1);
+        value = (ushort)(_value + 1);
     }
 
-    protected override ushort GetValueProperty()
+    protected override void SetterValue(ushort newValue)
     {
-        return (ushort)(hi.value << 8 | lo.value);
-    }
+        if (_value == newValue)
+            return;
 
-    protected override void SetValueProperty(ushort value)
-    {
-        byte loByte = (byte)(value & 0xF);
-        byte hiByte = (byte)(value >> 8 & 0xF);
-
-        lo.value = loByte;
-        hi.value = hiByte;
+        _value = newValue;
+        hi.value = (byte)(newValue >> 8);
+        lo.value = (byte)newValue;
     }
 
     public static implicit operator ushort(Register16Bit register)

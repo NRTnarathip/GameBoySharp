@@ -4,19 +4,23 @@ namespace GameBoySharp;
 
 public interface IRegisterBase
 {
+    public ushort GetValue();
     public void SetValue(ushort val);
     public void SetValue(int val);
-    // support 8bit, 16bit
-    public ushort GetValue();
+    public abstract void Increment();
+    public abstract void Decrement();
 }
 
 public abstract class RegisterBase<T> : IRegisterBase
 {
     public readonly string name;
+    public Action OnSetterValue;
     protected T _value;
-    public T value { get => GetValueProperty(); set => SetValueProperty(value); }
-    public int valueBytes { get; private set; }
-    public Type valueType { get; private set; }
+    public T value { get => GetterValue(); set => SetterValue(value); }
+    public readonly int valueBytes;
+    public readonly Type valueType;
+    public readonly bool is8Bit;
+    public readonly bool is16Bit;
 
     public RegisterBase(string name)
     {
@@ -29,42 +33,48 @@ public abstract class RegisterBase<T> : IRegisterBase
             valueBytes = 2;
         else
             throw new NotSupportedException();
+
+        is8Bit = valueBytes == 1;
+        is16Bit = !is8Bit;
     }
 
-    protected virtual void SetValueProperty(T newValue)
+    protected virtual void SetterValue(T newValue)
     {
-        this._value = newValue;
+        _value = newValue;
+        OnSetterValue?.Invoke();
     }
 
-    protected virtual T GetValueProperty()
+    protected virtual T GetterValue()
     {
         return _value;
     }
 
     public ushort GetValue()
     {
-        return Convert.ToUInt16(_value);
+        return Convert.ToUInt16(value);
     }
-
-    public void SetValue(T newValue) => _value = newValue;
 
     // support 8bit, 16bit
     public void SetValue(ushort newValue)
     {
         // match value within type
-        if (newValue is T newValueTypeCast)
-        {
-            SetValue(newValueTypeCast);
-            return;
-        }
-
-        // convert newValue ushort to byte
-        var newValueByte = (object)Convert.ToByte(newValue);
-        SetValue((T)newValueByte);
+        if ((byte)newValue is T tByte)
+            value = tByte;
+        else if (newValue is T tUShort)
+            value = tUShort;
+        else
+            throw new NotImplementedException();
     }
 
-    public abstract void Increment();
-    public abstract void Decrement();
-
     public void SetValue(int val) => SetValue((ushort)val);
+
+    public virtual void Increment()
+    {
+        throw new NotImplementedException();
+    }
+
+    public virtual void Decrement()
+    {
+        throw new NotImplementedException();
+    }
 }

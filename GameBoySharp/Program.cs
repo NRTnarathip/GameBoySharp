@@ -9,7 +9,10 @@ internal class Program
         //var asmReader = new GBAssemblyReader(tetrisRomBytes);
 
         var gameBoy = new GameBoy();
-        gameBoy.LoadGame(tetrisRomBytes);
+        //gameBoy.LoadGame(LoadRom("cpu_instrs/cpu_instrs.gb"));
+        //gameBoy.LoadGame(LoadRom("cpu_instrs/individual/01-special.gb"));
+        //gameBoy.LoadGame(LoadRom("cpu_instrs/individual/02-interrupts.gb"));
+        gameBoy.LoadGame(LoadRom("cpu_instrs/individual/06-ld r,r.gb"));
         Console.ReadKey();
     }
 

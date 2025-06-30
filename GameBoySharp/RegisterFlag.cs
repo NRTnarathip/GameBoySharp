@@ -10,9 +10,8 @@ public sealed class RegisterFlag : Register8Bit
         get => _Z;
         set
         {
-            needUpdateFlagAfterSetValue = false;
-            this.value = value ? (byte)(this.value | 0x80) : (byte)(this.value & ~0x80);
-            _Z = (this.value & 0x80) == 1;
+            _Z = value;
+            _value = _value.SetBit(7, value);
         }
     }
     bool _N;
@@ -21,9 +20,8 @@ public sealed class RegisterFlag : Register8Bit
         get => _N;
         set
         {
-            needUpdateFlagAfterSetValue = false;
-            this.value = value ? (byte)(this.value | 0x40) : (byte)(this.value & ~0x40);
-            _N = (this.value & 0x40) == 1;
+            _N = value;
+            _value = _value.SetBit(6, value);
         }
     }
     bool _H;
@@ -32,9 +30,8 @@ public sealed class RegisterFlag : Register8Bit
         get => _H;
         set
         {
-            needUpdateFlagAfterSetValue = false;
-            this.value = value ? (byte)(this.value | 0x20) : (byte)(this.value & ~0x20);
-            _H = (this.value & 0x20) == 1;
+            _H = value;
+            _value = _value.SetBit(5, value);
         }
     }
     bool _C;
@@ -43,9 +40,8 @@ public sealed class RegisterFlag : Register8Bit
         get => _C;
         set
         {
-            needUpdateFlagAfterSetValue = false;
-            this.value = value ? (byte)(this.value | 0x10) : (byte)(this.value & ~0x10);
-            _C = (this.value & 0x10) == 1;
+            _C = value;
+            _value = _value.SetBit(5, value);
         }
     }
 
@@ -54,15 +50,8 @@ public sealed class RegisterFlag : Register8Bit
 
     }
 
-    bool needUpdateFlagAfterSetValue = true;
-    protected override void SetValueProperty(byte newValue)
+    protected override void SetterValue(byte newValue)
     {
-        if (needUpdateFlagAfterSetValue is false)
-        {
-            needUpdateFlagAfterSetValue = true;
-            return;
-        }
-
         // update flags
         Z = (newValue & 0x80) == 0x1;
         N = (newValue & 0x40) == 0x1;

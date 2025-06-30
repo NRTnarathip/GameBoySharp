@@ -1,4 +1,6 @@
-﻿namespace GameBoySharp;
+﻿using System.Diagnostics;
+
+namespace GameBoySharp;
 
 public sealed class GameBoy
 {
@@ -24,11 +26,21 @@ public sealed class GameBoy
 
     void RunGame()
     {
+        var fpsTimer = Stopwatch.StartNew();
+        var gameTimer = Stopwatch.StartNew();
         while (true)
         {
             Thread.Sleep(0);
 
             cpu.Step();
+
+            if (fpsTimer.Elapsed.TotalSeconds >= 1)
+            {
+                fpsTimer.Restart();
+
+                Console.WriteLine("run timer: " + gameTimer.Elapsed.TotalSeconds);
+                Console.WriteLine("  last instruction: " + cpu.lastFetch);
+            }
         }
     }
 

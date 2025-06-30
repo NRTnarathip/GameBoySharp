@@ -8,21 +8,21 @@ namespace GameBoySharp;
 
 public sealed class GamePak
 {
-    public MBCBase? mbc;
+    public readonly MBCBase? mbc;
 
     public readonly byte mbcType;
-    public GamePak(byte[] rom)
+
+    public GamePak(byte[] bytes)
     {
         // read MBC type
-        mbcType = rom[0x147];
+        mbcType = bytes[0x147];
 
         switch (mbcType)
         {
-            case 0x0:
-                mbc = new MBC0(rom);
-                break;
-            default:
-                throw new NotImplementedException();
+            case 0x0: mbc = new MBC0(bytes); break;
+            case 0x1: mbc = new MBC1(bytes); break;
+
+            default: throw new NotImplementedException();
         }
 
     }

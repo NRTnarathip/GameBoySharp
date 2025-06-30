@@ -13,9 +13,8 @@ namespace GameBoySharp
         public const int RomSize = 0x8000;
         public readonly byte[] ROM = new byte[RomSize];
 
-        public MBC0(byte[] rom)
+        public MBC0(byte[] bytes) : base(bytes)
         {
-            this.ROM = rom;
         }
 
         public override byte ReadExternalRAM(ushort addr)
@@ -25,7 +24,6 @@ namespace GameBoySharp
 
         public override byte ReadROM(ushort addr)
         {
-            var addrHex = $"0x{addr.ToHex()}";
             return ROM[addr];
         }
 
