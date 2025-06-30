@@ -25,6 +25,7 @@ namespace GameBoySharp
 
         public override byte ReadROM(ushort addr)
         {
+            var addrHex = $"0x{addr.ToHex()}";
             return ROM[addr];
         }
 

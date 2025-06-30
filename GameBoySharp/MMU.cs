@@ -29,38 +29,40 @@ public sealed class MMU
             // Low, Hi Rom
             case <= 0x7FFF:
                 return mbc.ReadROM(addr);
-            case ushort _ when addr <= 0x9FFF:
+
+            case <= 0x9FFF:
                 // 8000-9FFF 8KB Video RAM(VRAM)(switchable bank 0-1 in CGB Mode)
                 return VRAM[addr & 0x1FFF];
-            case ushort _ when addr <= 0xBFFF:
+
+            case <= 0xBFFF:
                 // A000-BFFF 8KB External RAM(in cartridge, switchable bank, if any)
                 return mbc.ReadExternalRAM(addr);
-            case ushort _ when addr <= 0xCFFF:
+            case <= 0xCFFF:
                 // C000-CFFF 4KB Work RAM Bank 0(WRAM) <br/>
                 return WRAM0[addr & 0xFFF];
-            case ushort _ when addr <= 0xDFFF:
+            case <= 0xDFFF:
                 // D000-DFFF 4KB Work RAM Bank 1(WRAM)(switchable bank 1-7 in CGB Mode) <br/>
                 return WRAM1[addr & 0xFFF];
-            case ushort _ when addr <= 0xEFFF:
+            case <= 0xEFFF:
                 // E000-FDFF Same as 0xC000-DDFF(ECHO)  
                 return WRAM0[addr & 0xFFF];
-            case ushort _ when addr <= 0xFDFF:
+            case <= 0xFDFF:
                 // E000-FDFF Same as 0xC000-DDFF(ECHO)
                 return WRAM1[addr & 0xFFF];
-            case ushort _ when addr <= 0xFE9F:
+            case <= 0xFE9F:
                 // FE00-FE9F Sprite Attribute Table(OAM)
                 return OAM[addr - 0xFE00];
-            case ushort _ when addr <= 0xFEFF:
+            case <= 0xFEFF:
                 // FEA0-FEFF Not Usable 0
                 return 0x00;
-            case ushort _ when addr <= 0xFF7F:
+            case <= 0xFF7F:
                 // FF00-FF7F IO Ports
                 return IO[addr & 0x7F];
-            case ushort _ when addr <= 0xFFFF:
+            case <= 0xFFFF:
                 // FF80-FFFE High RAM(HRAM)
                 return HRAM[addr & 0x7F];
-            default:
-                return 0xFF;
+
+            default: return 0xFF;
         }
     }
     public byte ReadByte(int addr) => ReadByte((ushort)addr);
