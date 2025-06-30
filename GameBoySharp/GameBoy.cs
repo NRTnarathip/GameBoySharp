@@ -2,10 +2,12 @@
 
 public sealed class GameBoy
 {
-    public readonly CPU cpu = new();
+    public readonly MMU mmu = new();
+    public readonly CPU cpu;
 
     public GameBoy()
     {
+        cpu = new(mmu);
     }
 
 

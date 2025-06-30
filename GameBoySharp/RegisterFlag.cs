@@ -55,7 +55,7 @@ public sealed class RegisterFlag : Register8Bit
     }
 
     bool needUpdateFlagAfterSetValue = true;
-    public override void SetValue(byte newValue)
+    protected override void SetValueProperty(byte newValue)
     {
         if (needUpdateFlagAfterSetValue is false)
         {

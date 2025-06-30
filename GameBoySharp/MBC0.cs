@@ -18,20 +18,24 @@ namespace GameBoySharp
             this.ROM = rom;
         }
 
-        public override byte Read(int address)
+        public override byte ReadExternalRAM(ushort addr)
         {
-            return ROM[address];
+            return 0xFF;
         }
 
-        public override ushort Read16(ushort addr)
+        public override byte ReadROM(ushort addr)
         {
-            // little-endian
-            return (ushort)(Read(addr + 1) << 8 | Read(addr));
+            return ROM[addr];
         }
 
-        public override void Write(int address, byte val)
+        public override void WriteExternalRAM(ushort addr, byte val)
         {
-            ROM[address] = val;
+            // ignore
+        }
+
+        public override void WriteROM(ushort address, byte val)
+        {
+            // ignore
         }
     }
 }

@@ -11,8 +11,8 @@ namespace GameBoySharp
     {
         public static readonly InstructionDatabase Singleton = new();
 
-        readonly Dictionary<byte, InstructionDBInfo> normalInstructions = new();
-        readonly Dictionary<byte, InstructionDBInfo> cbprefixedInstructions = new();
+        readonly Dictionary<byte, InstructionMeta> normalInstructions = new();
+        readonly Dictionary<byte, InstructionMeta> cbprefixedInstructions = new();
 
         public InstructionDatabase()
         {
@@ -25,15 +25,15 @@ namespace GameBoySharp
         public void Init()
         {
             var json = JObject.Parse(File.ReadAllText("instructions.json"));
-            var unprefixItems = json["unprefixed"].ToObject<Dictionary<string, InstructionDBInfo>>();
-            var cbprefixItems = json["cbprefixed"].ToObject<Dictionary<string, InstructionDBInfo>>();
+            var unprefixItems = json["unprefixed"].ToObject<Dictionary<string, InstructionMeta>>();
+            var cbprefixItems = json["cbprefixed"].ToObject<Dictionary<string, InstructionMeta>>();
             LoadInstructionToDictionary(unprefixItems, normalInstructions);
             LoadInstructionToDictionary(cbprefixItems, cbprefixedInstructions);
         }
 
         void LoadInstructionToDictionary(
-            Dictionary<string, InstructionDBInfo> srcItems,
-            Dictionary<byte, InstructionDBInfo> destDictionary)
+            Dictionary<string, InstructionMeta> srcItems,
+            Dictionary<byte, InstructionMeta> destDictionary)
         {
             foreach ((var opcodeHex, var inst) in srcItems)
             {
@@ -42,9 +42,9 @@ namespace GameBoySharp
             }
         }
 
-        public InstructionDBInfo? GetInstruction(byte opcode)
+        public InstructionMeta? GetInstruction(byte opcode)
         {
-            InstructionDBInfo? inst;
+            InstructionMeta? inst;
             if (opcode == 0xCB)
             {
                 cbprefixedInstructions.TryGetValue(opcode, out inst);

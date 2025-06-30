@@ -1,30 +1,21 @@
 ﻿
+
 namespace GameBoySharp;
 
-public class Register8Bit
+public class Register8Bit : RegisterBase<byte>
 {
-    public readonly string name;
-    byte _value;
-
-    public byte value
+    public Register8Bit(string name) : base(name)
     {
-        get => GetValue();
-        set => SetValue(value);
     }
 
-    public Register8Bit(string name)
+    public override void Decrement()
     {
-        this.name = name;
+        value--;
     }
 
-    public virtual void SetValue(byte newValue)
+    public override void Increment()
     {
-        this._value = newValue;
-    }
-
-    public virtual byte GetValue()
-    {
-        return _value;
+        value++;
     }
 
     public static implicit operator byte(Register8Bit v)

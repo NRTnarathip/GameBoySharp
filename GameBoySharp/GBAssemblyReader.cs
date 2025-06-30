@@ -21,8 +21,8 @@ public sealed class GBAssemblyReader
         romSizeBytes = rom.Length;
 
         int PC = 0x150;
-        HashSet<InstructionDBInfo> uniqGeneralOpcodes = new();
-        HashSet<InstructionDBInfo> uniqPrefixOpcodes = new();
+        HashSet<InstructionMeta> uniqGeneralOpcodes = new();
+        HashSet<InstructionMeta> uniqPrefixOpcodes = new();
         while (true)
         {
             Thread.Sleep(0);
@@ -94,12 +94,12 @@ public sealed class GBAssemblyReader
         return (ushort)(rom[i + 1] << 8 | rom[i]);
     }
 
-    InstructionDBInfo? ReadOpcode(byte opcode)
+    InstructionMeta? ReadOpcode(byte opcode)
     {
         return instructionDatabase.GetInstruction(opcode);
     }
 
-    InstructionDBInfo? ReadOpcode(int i)
+    InstructionMeta? ReadOpcode(int i)
     {
         return ReadOpcode(ReadByte(i));
     }
